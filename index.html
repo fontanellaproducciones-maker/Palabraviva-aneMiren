@@ -858,17 +858,38 @@
 
         function changePhoto() {
             console.log('🖼️ Cambiando foto...');
+            
+            // Prevenir múltiples clicks
+            if (window.uploadingFile) {
+                console.log('⚠️ Ya hay una subida en progreso');
+                showNotification('⚠️ Espera a que termine la subida actual');
+                return;
+            }
+            
+            window.uploadingFile = true;
+            
             uploadToCloudinary((info) => {
                 console.log('Foto recibida:', info.secure_url);
                 content.aneMiren.photo = info.secure_url;
                 document.getElementById('ane-miren-photo').src = info.secure_url;
                 saveToLocalStorage();
                 showNotification('📸 Foto actualizada');
+                window.uploadingFile = false;
             });
         }
 
         function addDocument(section, itemId) {
             console.log('📎 Agregando documento a', section, itemId);
+            
+            // Prevenir múltiples clicks
+            if (window.uploadingFile) {
+                console.log('⚠️ Ya hay una subida en progreso');
+                showNotification('⚠️ Espera a que termine la subida actual');
+                return;
+            }
+            
+            window.uploadingFile = true;
+            
             uploadToCloudinary((info) => {
                 console.log('Documento recibido:', info);
                 const idx = content[section].findIndex(i => i.id == itemId);
@@ -888,6 +909,8 @@
                 } else {
                     console.error('No se encontró el item');
                 }
+                
+                window.uploadingFile = false;
             });
         }
 
@@ -1041,23 +1064,42 @@
         }
 
         function addEventListeners() {
-            document.querySelectorAll('.edit-item-btn').forEach(b => b.addEventListener('click', function() {
+            // Remover listeners antiguos para evitar duplicados
+            const buttons = document.querySelectorAll('.edit-item-btn, .delete-item-btn, .add-doc-btn, .view-doc-btn, .download-doc-btn, .remove-doc-btn');
+            buttons.forEach(btn => {
+                const newBtn = btn.cloneNode(true);
+                btn.parentNode.replaceChild(newBtn, btn);
+            });
+            
+            document.querySelectorAll('.edit-item-btn').forEach(b => b.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 if (isEditMode) showEditModal(this.dataset.section, this.dataset.id);
             }));
             
-            document.querySelectorAll('.delete-item-btn').forEach(b => b.addEventListener('click', function() {
+            document.querySelectorAll('.delete-item-btn').forEach(b => b.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 if (isEditMode) deleteItem(this.dataset.section, this.dataset.id);
             }));
             
-            document.querySelectorAll('.add-doc-btn').forEach(b => b.addEventListener('click', function() {
-                if (isEditMode) addDocument(this.dataset.section, this.dataset.id);
+            document.querySelectorAll('.add-doc-btn').forEach(b => b.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (isEditMode && !window.uploadingFile) {
+                    addDocument(this.dataset.section, this.dataset.id);
+                }
             }));
             
-            document.querySelectorAll('.view-doc-btn').forEach(b => b.addEventListener('click', function() {
+            document.querySelectorAll('.view-doc-btn').forEach(b => b.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 window.open(this.dataset.url, '_blank');
             }));
             
-            document.querySelectorAll('.download-doc-btn').forEach(b => b.addEventListener('click', function() {
+            document.querySelectorAll('.download-doc-btn').forEach(b => b.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 const a = document.createElement('a');
                 a.href = this.dataset.url;
                 a.download = this.dataset.name;
@@ -1065,7 +1107,9 @@
                 a.click();
             }));
             
-            document.querySelectorAll('.remove-doc-btn').forEach(b => b.addEventListener('click', function() {
+            document.querySelectorAll('.remove-doc-btn').forEach(b => b.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 if (isEditMode) removeDocument(this.dataset.section, this.dataset.itemId, this.dataset.docId);
             }));
         }
