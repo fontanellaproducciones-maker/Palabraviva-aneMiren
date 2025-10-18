@@ -3,25 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CMS Palabra Viva - Pedagogía Teatral a través de la Palabra</title>
+    <title>Palabra Viva - Pedagogía Teatral</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
     <style>
         .bg-gradient-custom {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-        }
-        
-        /* Asegurar que el widget de Cloudinary esté por encima de todo */
-        .cloudinary-widget-overlay {
-            z-index: 99999 !important;
-        }
-        
-        #cloudinary-overlay {
-            z-index: 99999 !important;
-        }
-        
-        .cloudinary-widget {
-            z-index: 99999 !important;
         }
     </style>
 </head>
@@ -33,7 +20,7 @@
                 <h3 class="text-xl font-bold mb-4 text-center">🔐 Acceso de Administrador</h3>
                 <div class="mb-4">
                     <label class="block text-sm font-bold mb-2">Contraseña:</label>
-                    <input type="password" id="admin-password" class="w-full p-3 border rounded focus:border-purple-500" placeholder="Ingresa la contraseña">
+                    <input type="password" id="admin-password" class="w-full p-3 border rounded" placeholder="Ingresa la contraseña">
                 </div>
                 <div class="flex gap-3">
                     <button id="login-btn" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 flex-1">Ingresar</button>
@@ -55,14 +42,14 @@
                         <span class="text-2xl">🔵</span>
                         <div class="text-left flex-1">
                             <div class="font-bold">Versión Limpia</div>
-                            <div class="text-sm opacity-90">Para subir a GitHub (sin datos de edición)</div>
+                            <div class="text-sm opacity-90">Para producción (sin botón editar)</div>
                         </div>
                     </button>
                     <button id="download-editable-btn" class="w-full bg-green-500 text-white px-4 py-3 rounded hover:bg-green-600 flex items-center gap-3">
                         <span class="text-2xl">🟢</span>
                         <div class="text-left flex-1">
                             <div class="font-bold">Versión Editable</div>
-                            <div class="text-sm opacity-90">Con todos los cambios integrados</div>
+                            <div class="text-sm opacity-90">Con todos los cambios y modo edición</div>
                         </div>
                     </button>
                     <button id="cancel-download-btn" class="w-full bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
@@ -348,8 +335,6 @@
 
     <script>
         const ADMIN_PASSWORD = 'PalabraViva2025';
-        const CLOUDINARY_CLOUD_NAME = 'dgqxttarn';
-        const CLOUDINARY_UPLOAD_PRESET = 'fontanella_uploads';
         
         let isAuthenticated = false;
         let isEditMode = false;
@@ -396,6 +381,7 @@
 
         let content = JSON.parse(localStorage.getItem('palabraVivaContent') || JSON.stringify(defaultContent));
 
+        // Funciones básicas
         function showNotification(msg) {
             const n = document.getElementById('notification');
             n.textContent = msg;
@@ -407,180 +393,38 @@
             localStorage.setItem('palabraVivaContent', JSON.stringify(content));
         }
 
+        // Cloudinary SIMPLE
         function initCloudinary() {
-            return new Promise((resolve, reject) => {
-                if (typeof cloudinary === 'undefined') {
-                    console.error('❌ Cloudinary no cargado');
-                    reject('Cloudinary no disponible');
+            if (typeof cloudinary === 'undefined') return;
+            
+            myWidget = cloudinary.createUploadWidget({
+                cloudName: 'dgqxttarn',
+                uploadPreset: 'fontanella_uploads',
+                sources: ['local'],
+                multiple: false,
+                maxFileSize: 10000000,
+                folder: 'palabra_viva'
+            }, (error, result) => {
+                if (error) {
+                    showNotification('❌ Error al subir');
                     return;
                 }
                 
-                try {
-                    // Crear widget con configuración mínima
-                    myWidget = cloudinary.createUploadWidget(
-                        {
-                            cloudName: 'dgqxttarn',
-                            uploadPreset: 'fontanella_uploads',
-                            sources: ['local'],
-                            multiple: false,
-                            maxFileSize: 10000000,
-                            folder: 'palabra_viva'
-                        },
-                        (error, result) => {
-                            console.log('📡 Evento:', result?.event, 'Error:', error);
-                            
-                            if (error) {
-                                console.error('❌ Error Cloudinary:', error);
-                                showNotification('❌ Error: ' + error.statusText);
-                                window.uploadCallback = null;
-                                window.uploadingFile = false;
-                                return;
-                            }
-                            
-                            if (!result) return;
-                            
-                            if (result.event === 'success') {
-                                console.log('🎉 ¡ARCHIVO SUBIDO!', result.info);
-                                showNotification('✅ ¡Archivo subido!');
-                                
-                                if (window.uploadCallback) {
-                                    window.uploadCallback(result.info);
-                                    window.uploadCallback = null;
-                                }
-                                
-                                // Cerrar el widget automáticamente después de subir
-                                setTimeout(() => {
-                                    if (myWidget) {
-                                        myWidget.close();
-                                        console.log('🔒 Widget cerrado automáticamente');
-                                    }
-                                    window.uploadingFile = false;
-                                }, 1000);
-                            }
-                            
-                            if (result.event === 'close') {
-                                console.log('❌ Widget cerrado por el usuario');
-                                window.uploadCallback = null;
-                                window.uploadingFile = false;
-                            }
-                        }
-                    );
-                    
-                    console.log('✅ Widget creado');
-                    resolve(true);
-                } catch (e) {
-                    console.error('❌ Error creando widget:', e);
-                    window.uploadingFile = false;
-                    reject(e);
+                if (result?.event === 'success' && window.uploadCallback) {
+                    showNotification('✅ Archivo subido');
+                    window.uploadCallback(result.info);
+                    window.uploadCallback = null;
                 }
             });
         }
 
         function uploadToCloudinary(callback) {
-            console.log('📤 Subiendo archivo...');
-            
-            // Verificar si ya hay una subida en progreso
-            if (window.uploadingFile) {
-                console.log('⚠️ Subida en progreso, cancelando...');
-                showNotification('⚠️ Ya hay una subida en progreso');
-                return;
-            }
-            
-            if (typeof cloudinary === 'undefined') {
-                alert('❌ Cloudinary no disponible. Asegúrate de tener conexión a internet.');
-                return;
-            }
-            
-            // Marcar que estamos subiendo
-            window.uploadingFile = true;
+            if (!myWidget) initCloudinary();
             window.uploadCallback = callback;
-            
-            // Timeout de seguridad - si no se completa en 60 segundos, resetear
-            const uploadTimeout = setTimeout(() => {
-                console.log('⏱️ Timeout de subida - reseteando estado');
-                window.uploadingFile = false;
-                window.uploadCallback = null;
-                if (myWidget) {
-                    myWidget.close();
-                }
-                showNotification('⏱️ Tiempo agotado - intenta de nuevo');
-            }, 60000);
-            
-            // Guardar el timeout para poder cancelarlo
-            window.uploadTimeout = uploadTimeout;
-            
-            if (!myWidget) {
-                console.log('Creando widget...');
-                showNotification('🔧 Preparando subida...');
-                
-                initCloudinary().then(() => {
-                    setTimeout(() => {
-                        console.log('🚀 Abriendo widget');
-                        myWidget.open();
-                    }, 500);
-                }).catch(err => {
-                    console.error('❌ Error:', err);
-                    window.uploadingFile = false;
-                    window.uploadCallback = null;
-                    clearTimeout(uploadTimeout);
-                    alert('❌ Error: ' + err);
-                });
-            } else {
-                console.log('Abriendo widget...');
-                showNotification('📂 Abriendo selector...');
-                
-                try {
-                    myWidget.open();
-                    console.log('✅ Widget abierto');
-                    
-                    // Forzar posicionamiento del widget después de abrirlo
-                    setTimeout(() => {
-                        const iframe = document.querySelector('iframe[src*="cloudinary"]');
-                        
-                        if (iframe) {
-                            console.log('✅ Iframe encontrado, aplicando estilos...');
-                            
-                            iframe.style.zIndex = '999999';
-                            iframe.style.position = 'fixed';
-                            iframe.style.top = '50%';
-                            iframe.style.left = '50%';
-                            iframe.style.transform = 'translate(-50%, -50%)';
-                            iframe.style.width = '700px';
-                            iframe.style.height = '500px';
-                            iframe.style.border = '2px solid #667eea';
-                            iframe.style.borderRadius = '10px';
-                            iframe.style.boxShadow = '0 10px 50px rgba(0,0,0,0.3)';
-                            
-                            const parent = iframe.parentElement;
-                            if (parent) {
-                                parent.style.zIndex = '999999';
-                                parent.style.position = 'fixed';
-                                parent.style.top = '0';
-                                parent.style.left = '0';
-                                parent.style.width = '100%';
-                                parent.style.height = '100%';
-                                parent.style.display = 'flex';
-                                parent.style.alignItems = 'center';
-                                parent.style.justifyContent = 'center';
-                                parent.style.backgroundColor = 'rgba(0,0,0,0.5)';
-                            }
-                            
-                            showNotification('✅ Widget visible - Selecciona tu archivo');
-                        } else {
-                            console.warn('⚠️ No se encontró iframe después de 500ms');
-                        }
-                    }, 500);
-                    
-                } catch (e) {
-                    console.error('❌ Error abriendo widget:', e);
-                    window.uploadingFile = false;
-                    window.uploadCallback = null;
-                    clearTimeout(uploadTimeout);
-                    alert('Error: ' + e.message);
-                }
-            }
+            myWidget.open();
         }
 
+        // Login
         function showLoginModal() {
             document.getElementById('login-modal').style.display = 'flex';
             document.getElementById('admin-password').focus();
@@ -605,6 +449,7 @@
             }
         }
 
+        // Modo edición
         function toggleEditMode() {
             if (!isAuthenticated && !isEditMode) {
                 showLoginModal();
@@ -637,8 +482,8 @@
             document.getElementById('download-modal').style.display = 'flex';
         }
 
+        // Descargas
         function downloadCleanVersion() {
-            // Primero cerrar modal y volver a modo normal
             document.getElementById('download-modal').style.display = 'none';
             isEditMode = false;
             isAuthenticated = false;
@@ -649,42 +494,25 @@
             document.getElementById('upload-photo-btn').style.display = 'none';
             renderContent();
             
-            // Esperar un momento para que se actualice el DOM
             setTimeout(() => {
                 let html = document.documentElement.outerHTML;
-                
-                // USAR EL CONTENIDO ACTUAL (tus cambios) en lugar de defaultContent
                 const contentString = JSON.stringify(content, null, 2);
-                html = html.replace(
-                    /let content = [\s\S]*?;/m,
-                    `let content = ${contentString};`
-                );
+                html = html.replace(/let content = [\s\S]*?;/m, `let content = ${contentString};`);
+                html = html.replace('</head>', '<style>#edit-mode-btn,#login-modal,#download-modal,#edit-modal,#edit-anemiren-modal,#cms-toolbar,#upload-photo-btn{display:none!important}</style></head>');
                 
-                // Agregar CSS para ocultar elementos del CMS
-                html = html.replace(
-                    '</head>',
-                    `<style>
-                        /* Ocultar elementos del CMS en versión limpia */
-                        #edit-mode-btn,
-                        #login-modal,
-                        #download-modal,
-                        #edit-modal,
-                        #edit-anemiren-modal,
-                        #cms-toolbar,
-                        #upload-photo-btn {
-                            display: none !important;
-                        }
-                    </style>
-                    </head>`
-                );
+                const blob = new Blob([html], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'palabra-viva-limpia.html';
+                a.click();
+                URL.revokeObjectURL(url);
                 
-                downloadFile(html, 'palabra-viva-limpia.html');
-                showNotification('🔵 Versión limpia descargada con tus cambios');
+                showNotification('🔵 Versión limpia descargada');
             }, 100);
         }
 
         function downloadEditableVersion() {
-            // Primero cerrar modal y volver a modo normal
             document.getElementById('download-modal').style.display = 'none';
             isEditMode = false;
             isAuthenticated = false;
@@ -695,39 +523,28 @@
             document.getElementById('upload-photo-btn').style.display = 'none';
             renderContent();
             
-            // Esperar un momento para que se actualice el DOM
             setTimeout(() => {
                 let html = document.documentElement.outerHTML;
-                
-                // Reemplazar la línea de content con los datos actuales
                 const contentString = JSON.stringify(content, null, 2);
-                html = html.replace(
-                    /let content = JSON\.parse\(localStorage\.getItem\('palabraVivaContent'\) \|\| JSON\.stringify\(defaultContent\)\);/,
-                    `let content = ${contentString};`
-                );
+                html = html.replace(/let content = [\s\S]*?;/m, `let content = ${contentString};`);
                 
-                downloadFile(html, 'palabra-viva-editable.html');
+                const blob = new Blob([html], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'palabra-viva-editable.html';
+                a.click();
+                URL.revokeObjectURL(url);
+                
                 showNotification('🟢 Versión editable descargada');
             }, 100);
         }
 
-        function downloadFile(content, filename) {
-            const blob = new Blob([content], { type: 'text/html' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
         function closeDownloadModal() {
             document.getElementById('download-modal').style.display = 'none';
-            // Ya no resetear el modo aquí porque lo hacemos en las funciones de descarga
         }
 
+        // Modal de edición
         function showEditModal(section, itemId = null) {
             const modal = document.getElementById('edit-modal');
             const verseContainer = document.getElementById('edit-verse-container');
@@ -803,6 +620,7 @@
             renderContent();
         }
 
+        // Ane Miren
         function showAneMirenModal() {
             document.getElementById('edit-am-title').value = content.aneMiren.title;
             document.getElementById('edit-am-subtitle').value = content.aneMiren.subtitle;
@@ -867,60 +685,30 @@
         }
 
         function changePhoto() {
-            console.log('🖼️ Cambiando foto...');
-            
-            // Prevenir múltiples clicks
-            if (window.uploadingFile) {
-                console.log('⚠️ Ya hay una subida en progreso');
-                showNotification('⚠️ Espera a que termine la subida actual');
-                return;
-            }
-            
-            window.uploadingFile = true;
-            
             uploadToCloudinary((info) => {
-                console.log('Foto recibida:', info.secure_url);
                 content.aneMiren.photo = info.secure_url;
                 document.getElementById('ane-miren-photo').src = info.secure_url;
                 saveToLocalStorage();
                 showNotification('📸 Foto actualizada');
-                window.uploadingFile = false;
             });
         }
 
         function addDocument(section, itemId) {
-            console.log('📎 Agregando documento a', section, itemId);
-            
-            // Prevenir múltiples clicks
-            if (window.uploadingFile) {
-                console.log('⚠️ Ya hay una subida en progreso');
-                showNotification('⚠️ Espera a que termine la subida actual');
-                return;
-            }
-            
-            window.uploadingFile = true;
-            
             uploadToCloudinary((info) => {
-                console.log('Documento recibido:', info);
                 const idx = content[section].findIndex(i => i.id == itemId);
                 if (idx !== -1) {
-                    const doc = {
+                    content[section][idx].documents.push({
                         id: Date.now(),
                         name: info.original_filename || 'documento',
                         url: info.secure_url,
                         type: info.resource_type,
                         format: info.format || 'file',
                         size: info.bytes || 0
-                    };
-                    content[section][idx].documents.push(doc);
+                    });
                     saveToLocalStorage();
                     renderContent();
-                    showNotification('✅ Documento agregado: ' + doc.name);
-                } else {
-                    console.error('No se encontró el item');
+                    showNotification('📎 Documento agregado');
                 }
-                
-                window.uploadingFile = false;
             });
         }
 
@@ -935,6 +723,7 @@
             }
         }
 
+        // Renderizado
         function renderContent() {
             renderAneMiren();
             renderFortalezas();
@@ -974,8 +763,8 @@
                                     <div class="flex items-center justify-between bg-white p-2 rounded border">
                                         <span class="text-sm">${d.name}.${d.format}</span>
                                         <div class="flex gap-1">
-                                            <button class="view-doc-btn bg-green-500 text-white px-2 py-1 rounded text-xs" data-url="${d.url}">👁️</button>
-                                            <button class="download-doc-btn bg-blue-500 text-white px-2 py-1 rounded text-xs" data-url="${d.url}" data-name="${d.name}.${d.format}">⬇️</button>
+                                            <a href="${d.url}" target="_blank" class="bg-green-500 text-white px-2 py-1 rounded text-xs">👁️</a>
+                                            <a href="${d.url}" download class="bg-blue-500 text-white px-2 py-1 rounded text-xs">⬇️</a>
                                             ${isEditMode ? `<button class="remove-doc-btn text-red-500 px-1" data-section="fortalezas" data-item-id="${f.id}" data-doc-id="${d.id}">🗑️</button>` : ''}
                                         </div>
                                     </div>
@@ -1012,8 +801,8 @@
                                     <div class="flex items-center justify-between bg-white/20 p-2 rounded">
                                         <span class="text-sm">${d.name}.${d.format}</span>
                                         <div class="flex gap-1">
-                                            <button class="view-doc-btn bg-green-500 text-white px-2 py-1 rounded text-xs" data-url="${d.url}">👁️</button>
-                                            <button class="download-doc-btn bg-blue-500 text-white px-2 py-1 rounded text-xs" data-url="${d.url}" data-name="${d.name}.${d.format}">⬇️</button>
+                                            <a href="${d.url}" target="_blank" class="bg-green-500 text-white px-2 py-1 rounded text-xs">👁️</a>
+                                            <a href="${d.url}" download class="bg-blue-500 text-white px-2 py-1 rounded text-xs">⬇️</a>
                                             ${isEditMode ? `<button class="remove-doc-btn text-red-300 px-1" data-section="services" data-item-id="${s.id}" data-doc-id="${d.id}">🗑️</button>` : ''}
                                         </div>
                                     </div>
@@ -1050,8 +839,8 @@
                                     <div class="flex items-center justify-between bg-white p-2 rounded border">
                                         <span class="text-sm">${d.name}.${d.format}</span>
                                         <div class="flex gap-1">
-                                            <button class="view-doc-btn bg-green-500 text-white px-2 py-1 rounded text-xs" data-url="${d.url}">👁️</button>
-                                            <button class="download-doc-btn bg-blue-500 text-white px-2 py-1 rounded text-xs" data-url="${d.url}" data-name="${d.name}.${d.format}">⬇️</button>
+                                            <a href="${d.url}" target="_blank" class="bg-green-500 text-white px-2 py-1 rounded text-xs">👁️</a>
+                                            <a href="${d.url}" download class="bg-blue-500 text-white px-2 py-1 rounded text-xs">⬇️</a>
                                             ${isEditMode ? `<button class="remove-doc-btn text-red-500 px-1" data-section="specialties" data-item-id="${s.id}" data-doc-id="${d.id}">🗑️</button>` : ''}
                                         </div>
                                     </div>
@@ -1074,116 +863,58 @@
         }
 
         function addEventListeners() {
-            // Remover listeners antiguos para evitar duplicados
-            const buttons = document.querySelectorAll('.edit-item-btn, .delete-item-btn, .add-doc-btn, .view-doc-btn, .download-doc-btn, .remove-doc-btn');
-            buttons.forEach(btn => {
-                const newBtn = btn.cloneNode(true);
-                btn.parentNode.replaceChild(newBtn, btn);
+            document.querySelectorAll('.edit-item-btn').forEach(b => b.onclick = function() {
+                if (isEditMode) showEditModal(this.dataset.section, this.dataset.id);
             });
             
-            document.querySelectorAll('.edit-item-btn').forEach(b => b.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                if (isEditMode) showEditModal(this.dataset.section, this.dataset.id);
-            }));
-            
-            document.querySelectorAll('.delete-item-btn').forEach(b => b.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
+            document.querySelectorAll('.delete-item-btn').forEach(b => b.onclick = function() {
                 if (isEditMode) deleteItem(this.dataset.section, this.dataset.id);
-            }));
+            });
             
-            document.querySelectorAll('.add-doc-btn').forEach(b => b.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                if (isEditMode && !window.uploadingFile) {
-                    addDocument(this.dataset.section, this.dataset.id);
-                }
-            }));
+            document.querySelectorAll('.add-doc-btn').forEach(b => b.onclick = function() {
+                if (isEditMode) addDocument(this.dataset.section, this.dataset.id);
+            });
             
-            document.querySelectorAll('.view-doc-btn').forEach(b => b.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                window.open(this.dataset.url, '_blank');
-            }));
-            
-            document.querySelectorAll('.download-doc-btn').forEach(b => b.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                const a = document.createElement('a');
-                a.href = this.dataset.url;
-                a.download = this.dataset.name;
-                a.target = '_blank';
-                a.click();
-            }));
-            
-            document.querySelectorAll('.remove-doc-btn').forEach(b => b.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
+            document.querySelectorAll('.remove-doc-btn').forEach(b => b.onclick = function() {
                 if (isEditMode) removeDocument(this.dataset.section, this.dataset.itemId, this.dataset.docId);
-            }));
+            });
         }
 
         // Init
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🎭 CMS Palabra Viva iniciando...');
-            console.log('🔐 Contraseña: PalabraViva2025');
+            if (typeof cloudinary !== 'undefined') {
+                initCloudinary();
+            }
             
             renderContent();
             
-            // Inicializar Cloudinary cuando esté disponible
-            let checkCount = 0;
-            const maxChecks = 50;
+            document.getElementById('edit-mode-btn').onclick = toggleEditMode;
+            document.getElementById('exit-edit-btn').onclick = exitEditMode;
+            document.getElementById('login-btn').onclick = checkPassword;
+            document.getElementById('cancel-login-btn').onclick = hideLoginModal;
+            document.getElementById('admin-password').onkeypress = e => { if (e.key === 'Enter') checkPassword(); };
             
-            const waitForCloudinary = setInterval(() => {
-                checkCount++;
-                
-                if (typeof cloudinary !== 'undefined') {
-                    clearInterval(waitForCloudinary);
-                    console.log('✅ Cloudinary detectado, inicializando...');
-                    
-                    initCloudinary().then(() => {
-                        console.log('✅ Sistema de archivos listo');
-                    }).catch(err => {
-                        console.error('❌ Error inicializando:', err);
-                    });
-                    
-                } else if (checkCount >= maxChecks) {
-                    clearInterval(waitForCloudinary);
-                    console.error('❌ Cloudinary no disponible después de 5s');
-                    console.log('💡 Verifica tu conexión a internet');
-                }
-            }, 100);
+            document.getElementById('edit-form').onsubmit = saveEditedItem;
+            document.getElementById('cancel-edit-btn').onclick = hideEditModal;
             
-            document.getElementById('edit-mode-btn').addEventListener('click', toggleEditMode);
-            document.getElementById('exit-edit-btn').addEventListener('click', exitEditMode);
-            document.getElementById('login-btn').addEventListener('click', checkPassword);
-            document.getElementById('cancel-login-btn').addEventListener('click', hideLoginModal);
-            document.getElementById('admin-password').addEventListener('keypress', e => {
-                if (e.key === 'Enter') checkPassword();
-            });
+            document.getElementById('add-fortaleza-btn').onclick = () => showEditModal('fortalezas');
+            document.getElementById('add-service-btn').onclick = () => showEditModal('services');
+            document.getElementById('add-specialty-btn').onclick = () => showEditModal('specialties');
             
-            document.getElementById('edit-form').addEventListener('submit', saveEditedItem);
-            document.getElementById('cancel-edit-btn').addEventListener('click', hideEditModal);
+            document.getElementById('edit-anemiren-btn').onclick = showAneMirenModal;
+            document.getElementById('save-anemiren-btn').onclick = saveAneMirenChanges;
+            document.getElementById('cancel-anemiren-btn').onclick = hideAneMirenModal;
+            document.getElementById('add-am-feature-btn').onclick = addFeature;
+            document.getElementById('upload-photo-btn').onclick = changePhoto;
             
-            document.getElementById('add-fortaleza-btn').addEventListener('click', () => showEditModal('fortalezas'));
-            document.getElementById('add-service-btn').addEventListener('click', () => showEditModal('services'));
-            document.getElementById('add-specialty-btn').addEventListener('click', () => showEditModal('specialties'));
+            document.getElementById('download-clean-btn').onclick = downloadCleanVersion;
+            document.getElementById('download-editable-btn').onclick = downloadEditableVersion;
+            document.getElementById('cancel-download-btn').onclick = closeDownloadModal;
             
-            document.getElementById('edit-anemiren-btn').addEventListener('click', showAneMirenModal);
-            document.getElementById('save-anemiren-btn').addEventListener('click', saveAneMirenChanges);
-            document.getElementById('cancel-anemiren-btn').addEventListener('click', hideAneMirenModal);
-            document.getElementById('add-am-feature-btn').addEventListener('click', addFeature);
-            document.getElementById('upload-photo-btn').addEventListener('click', changePhoto);
-            
-            document.getElementById('download-clean-btn').addEventListener('click', downloadCleanVersion);
-            document.getElementById('download-editable-btn').addEventListener('click', downloadEditableVersion);
-            document.getElementById('cancel-download-btn').addEventListener('click', closeDownloadModal);
-            
-            document.getElementById('login-modal').addEventListener('click', e => { if (e.target === e.currentTarget) hideLoginModal(); });
-            document.getElementById('edit-modal').addEventListener('click', e => { if (e.target === e.currentTarget) hideEditModal(); });
-            document.getElementById('edit-anemiren-modal').addEventListener('click', e => { if (e.target === e.currentTarget) hideAneMirenModal(); });
-            document.getElementById('download-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDownloadModal(); });
+            document.getElementById('login-modal').onclick = e => { if (e.target === e.currentTarget) hideLoginModal(); };
+            document.getElementById('edit-modal').onclick = e => { if (e.target === e.currentTarget) hideEditModal(); };
+            document.getElementById('edit-anemiren-modal').onclick = e => { if (e.target === e.currentTarget) hideAneMirenModal(); };
+            document.getElementById('download-modal').onclick = e => { if (e.target === e.currentTarget) closeDownloadModal(); };
         });
     </script>
 </body>
