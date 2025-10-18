@@ -432,7 +432,8 @@
                             if (error) {
                                 console.error('❌ Error Cloudinary:', error);
                                 showNotification('❌ Error: ' + error.statusText);
-                                alert('Error de Cloudinary: ' + JSON.stringify(error));
+                                window.uploadCallback = null;
+                                window.uploadingFile = false;
                                 return;
                             }
                             
@@ -446,45 +447,30 @@
                                     window.uploadCallback(result.info);
                                     window.uploadCallback = null;
                                 }
+                                
+                                // Cerrar el widget automáticamente después de subir
+                                setTimeout(() => {
+                                    if (myWidget) {
+                                        myWidget.close();
+                                        console.log('🔒 Widget cerrado automáticamente');
+                                    }
+                                    window.uploadingFile = false;
+                                }, 1000);
+                            }
+                            
+                            if (result.event === 'close') {
+                                console.log('❌ Widget cerrado por el usuario');
+                                window.uploadCallback = null;
+                                window.uploadingFile = false;
                             }
                         }
                     );
                     
                     console.log('✅ Widget creado');
-                    
-                    // Probar abrir inmediatamente para ver si funciona
-                    setTimeout(() => {
-                        console.log('🧪 Prueba: abriendo widget...');
-                        myWidget.open();
-                        
-                        setTimeout(() => {
-                            const iframe = document.querySelector('iframe[src*="cloudinary"]');
-                            const overlay = document.querySelector('div[class*="cloudinary"]');
-                            
-                            console.log('🔍 Iframe encontrado:', iframe);
-                            console.log('🔍 Overlay encontrado:', overlay);
-                            
-                            if (iframe || overlay) {
-                                console.log('✅ Widget está en el DOM');
-                                if (iframe) {
-                                    iframe.style.zIndex = '999999';
-                                    console.log('Z-index del iframe:', iframe.style.zIndex);
-                                }
-                                if (overlay) {
-                                    overlay.style.zIndex = '999999';
-                                    console.log('Z-index del overlay:', overlay.style.zIndex);
-                                }
-                            } else {
-                                console.error('❌ Widget NO está en el DOM');
-                            }
-                            
-                            myWidget.close();
-                        }, 1000);
-                    }, 1000);
-                    
                     resolve(true);
                 } catch (e) {
                     console.error('❌ Error creando widget:', e);
+                    window.uploadingFile = false;
                     reject(e);
                 }
             });
@@ -493,81 +479,105 @@
         function uploadToCloudinary(callback) {
             console.log('📤 Subiendo archivo...');
             
-            if (typeof cloudinary === 'undefined') {
-                alert('❌ Cloudinary no disponible');
+            // Verificar si ya hay una subida en progreso
+            if (window.uploadingFile) {
+                console.log('⚠️ Subida en progreso, cancelando...');
+                showNotification('⚠️ Ya hay una subida en progreso');
                 return;
             }
             
+            if (typeof cloudinary === 'undefined') {
+                alert('❌ Cloudinary no disponible. Asegúrate de tener conexión a internet.');
+                return;
+            }
+            
+            // Marcar que estamos subiendo
+            window.uploadingFile = true;
             window.uploadCallback = callback;
+            
+            // Timeout de seguridad - si no se completa en 60 segundos, resetear
+            const uploadTimeout = setTimeout(() => {
+                console.log('⏱️ Timeout de subida - reseteando estado');
+                window.uploadingFile = false;
+                window.uploadCallback = null;
+                if (myWidget) {
+                    myWidget.close();
+                }
+                showNotification('⏱️ Tiempo agotado - intenta de nuevo');
+            }, 60000);
+            
+            // Guardar el timeout para poder cancelarlo
+            window.uploadTimeout = uploadTimeout;
             
             if (!myWidget) {
                 console.log('Creando widget...');
+                showNotification('🔧 Preparando subida...');
+                
                 initCloudinary().then(() => {
-                    setTimeout(() => myWidget.open(), 500);
+                    setTimeout(() => {
+                        console.log('🚀 Abriendo widget');
+                        myWidget.open();
+                    }, 500);
+                }).catch(err => {
+                    console.error('❌ Error:', err);
+                    window.uploadingFile = false;
+                    window.uploadCallback = null;
+                    clearTimeout(uploadTimeout);
+                    alert('❌ Error: ' + err);
                 });
             } else {
                 console.log('Abriendo widget...');
-                myWidget.open();
+                showNotification('📂 Abriendo selector...');
                 
-                // Buscar y FORZAR posicionamiento del widget
-                setTimeout(() => {
-                    const iframe = document.querySelector('iframe[src*="cloudinary"]');
+                try {
+                    myWidget.open();
+                    console.log('✅ Widget abierto');
                     
-                    if (iframe) {
-                        console.log('✅ Iframe encontrado, forzando posición...');
+                    // Forzar posicionamiento del widget después de abrirlo
+                    setTimeout(() => {
+                        const iframe = document.querySelector('iframe[src*="cloudinary"]');
                         
-                        // Forzar estilos del iframe
-                        iframe.style.zIndex = '999999';
-                        iframe.style.position = 'fixed';
-                        iframe.style.top = '50%';
-                        iframe.style.left = '50%';
-                        iframe.style.transform = 'translate(-50%, -50%)';
-                        iframe.style.width = '700px';
-                        iframe.style.height = '500px';
-                        iframe.style.border = '2px solid #667eea';
-                        iframe.style.borderRadius = '10px';
-                        iframe.style.boxShadow = '0 10px 50px rgba(0,0,0,0.3)';
-                        iframe.style.display = 'block';
-                        iframe.style.visibility = 'visible';
-                        iframe.style.opacity = '1';
-                        
-                        console.log('✅ Estilos del iframe aplicados');
-                        
-                        // Forzar estilos del padre
-                        const parent = iframe.parentElement;
-                        if (parent) {
-                            parent.style.zIndex = '999999';
-                            parent.style.position = 'fixed';
-                            parent.style.top = '0';
-                            parent.style.left = '0';
-                            parent.style.width = '100%';
-                            parent.style.height = '100%';
-                            parent.style.display = 'flex';
-                            parent.style.alignItems = 'center';
-                            parent.style.justifyContent = 'center';
-                            parent.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                        if (iframe) {
+                            console.log('✅ Iframe encontrado, aplicando estilos...');
                             
-                            console.log('✅ Estilos del padre aplicados');
+                            iframe.style.zIndex = '999999';
+                            iframe.style.position = 'fixed';
+                            iframe.style.top = '50%';
+                            iframe.style.left = '50%';
+                            iframe.style.transform = 'translate(-50%, -50%)';
+                            iframe.style.width = '700px';
+                            iframe.style.height = '500px';
+                            iframe.style.border = '2px solid #667eea';
+                            iframe.style.borderRadius = '10px';
+                            iframe.style.boxShadow = '0 10px 50px rgba(0,0,0,0.3)';
+                            
+                            const parent = iframe.parentElement;
+                            if (parent) {
+                                parent.style.zIndex = '999999';
+                                parent.style.position = 'fixed';
+                                parent.style.top = '0';
+                                parent.style.left = '0';
+                                parent.style.width = '100%';
+                                parent.style.height = '100%';
+                                parent.style.display = 'flex';
+                                parent.style.alignItems = 'center';
+                                parent.style.justifyContent = 'center';
+                                parent.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                            }
+                            
+                            showNotification('✅ Widget visible - Selecciona tu archivo');
+                        } else {
+                            console.warn('⚠️ No se encontró iframe después de 500ms');
                         }
-                        
-                        // Verificar todos los ancestros
-                        let element = iframe;
-                        let depth = 0;
-                        while (element.parentElement && depth < 10) {
-                            element = element.parentElement;
-                            element.style.zIndex = '999999';
-                            element.style.position = element === parent ? 'fixed' : 'relative';
-                            console.log(`✅ Ancestro ${depth} configurado`);
-                            depth++;
-                        }
-                        
-                        showNotification('✅ Widget visible - Selecciona un archivo');
-                        
-                    } else {
-                        console.error('❌ No se encontró iframe');
-                        alert('⚠️ No se pudo mostrar el selector de archivos');
-                    }
-                }, 500);
+                    }, 500);
+                    
+                } catch (e) {
+                    console.error('❌ Error abriendo widget:', e);
+                    window.uploadingFile = false;
+                    window.uploadCallback = null;
+                    clearTimeout(uploadTimeout);
+                    alert('Error: ' + e.message);
+                }
             }
         }
 
